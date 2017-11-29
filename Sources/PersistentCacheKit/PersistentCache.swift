@@ -29,9 +29,9 @@ public struct Item<Value: Codable>: Codable {
 }
 
 
-public class PersistentCache<Key: CustomStringConvertible, Value: Codable> {
+public class PersistentCache<Key: CustomStringConvertible & Hashable, Value: Codable> {
 	private let queue = DispatchQueue(label: "Cache", attributes: .concurrent)
-	private let internalCache = NSCache<AnyObject, AnyObject>() // The ObjC generics don't translate well here
+	private var internalCache = Dictionary<Key, Item<Value>>()
 	
 	public let storage: CacheStorage?
 	public let namespace: String?
@@ -41,12 +41,20 @@ public class PersistentCache<Key: CustomStringConvertible, Value: Codable> {
 	public init(storage: CacheStorage? = SQLiteCacheStorage.shared, namespace: String? = nil) {
 		self.storage = storage
 		self.namespace = namespace
+		
+		#if os(iOS)
+			NotificationCenter.default.addObserver(self, selector: #selector(didReceiveMemoryWarning), name: .UIApplicationDidReceiveMemoryWarning, object: nil)
+		#endif
 	}
 	
 	
+	@objc private func didReceiveMemoryWarning() {
+		self.clearMemoryCache()
+	}
+	
 	public func clearMemoryCache(completion: (() -> Void)? = nil) {
 		queue.async(flags: .barrier) {
-			self.internalCache.removeAllObjects()
+			self.internalCache = [:]
 			
 			if let completion = completion {
 				DispatchQueue.global().async {
@@ -81,7 +89,7 @@ public class PersistentCache<Key: CustomStringConvertible, Value: Codable> {
 	public subscript(item key: Key) -> Item<Value>? {
 		get {
 			return queue.sync {
-				if let item = self.internalCache.object(forKey: key as AnyObject) as! Item<Value>? {
+				if let item = self.internalCache[key] {
 					return item
 				} else if let data = self.storage?[self.stringKey(for: key)], let item = try? self.decoder.decode(Item<Value>.self, from: data) {
 					return item
@@ -94,7 +102,7 @@ public class PersistentCache<Key: CustomStringConvertible, Value: Codable> {
 			let data = try? self.encoder.encode(newValue)
 			
 			queue.async(flags: .barrier) {
-				self.internalCache.setObject(newValue as AnyObject, forKey: key as AnyObject)
+				self.internalCache[key] = newValue
 				
 				self.storage?[self.stringKey(for: key)] = data
 			}
