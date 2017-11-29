@@ -40,9 +40,28 @@ public final class SQLiteCacheStorage: CacheStorage {
 		}
 	}
 	
+	public func removeAll() throws {
+		try queue.sync {
+			do {
+				let sql = "DELETE FROM cache_storage;"
+				let statement = try self.db.preparedStatement(forSQL: sql)
+				try statement.step()
+				try statement.reset()
+			}
+			
+			do {
+				let sql = "VACUUM;"
+				let statement = try self.db.preparedStatement(forSQL: sql)
+				try statement.step()
+				try statement.reset()
+			}
+			
+			lastTrimmed = Date()
+		}
+	}
+	
 	
 	// MARK: - Queries
-	
 	
 	public subscript(key: String) -> Data? {
 		get {
