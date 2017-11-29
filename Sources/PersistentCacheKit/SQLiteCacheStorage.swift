@@ -26,6 +26,8 @@ public final class SQLiteCacheStorage: CacheStorage {
 	
 	public init(url: URL) throws {
 		self.db = try SQLiteDB(url: url)
+		
+		try self.createTable()
 	}
 	
 	public var maxFilesize: Int? {
@@ -62,6 +64,11 @@ public final class SQLiteCacheStorage: CacheStorage {
 	
 	
 	// MARK: - Queries
+	
+	private func createTable() throws {
+		let statement = try db.preparedStatement(forSQL: "CREATE TABLE IF NOT EXISTS cache_storage (key TEXT PRIMARY KEY NOT NULL, data BLOB, createdAt INTEGER)", shouldCache: false)
+		try statement.step()
+	}
 	
 	public subscript(key: String) -> Data? {
 		get {
