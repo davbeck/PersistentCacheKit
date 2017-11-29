@@ -1,5 +1,5 @@
 import Foundation
-import CSQLiteMac
+import SQLite3
 
 
 public final class SQLiteCacheStorage: CacheStorage {
