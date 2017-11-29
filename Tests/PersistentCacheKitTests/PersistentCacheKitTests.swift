@@ -14,9 +14,9 @@ struct Thing: Codable, Equatable {
 
 
 class PersistentCacheKitTests: XCTestCase {
-    func testExample() {
+	func testExample() {
 		let key = UUID()
-        let cache = PersistentCache<UUID, Int>()
+		let cache = PersistentCache<UUID, Int>()
 		
 		cache[key] = 5
 		
@@ -27,12 +27,24 @@ class PersistentCacheKitTests: XCTestCase {
 		self.wait(for: [expectation], timeout: 5)
 		
 		XCTAssertEqual(cache[key], 5)
-    }
+	}
+	
+	func testMemoryCache() {
+		let key = UUID()
+		let cache1 = PersistentCache<UUID, Int>(storage: nil)
+		let cache2 = PersistentCache<UUID, Int>(storage: nil)
+		
+		cache1[key] = 5
+		cache2[key] = 6
+		XCTAssertEqual(cache1[key], 5)
+		XCTAssertEqual(cache2[key], 6)
+		
+	}
 	
 	func testPerformance() {
 		let cache = PersistentCache<Int, Thing>()
 		
-		let things = (0..<1000).map({ _ in Thing() })
+		let things = (0..<100).map({ _ in Thing() })
 		measure {
 			for (key, thing) in zip(things.indices, things) {
 				cache[key] = thing

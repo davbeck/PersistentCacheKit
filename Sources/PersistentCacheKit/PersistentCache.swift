@@ -33,12 +33,12 @@ public class PersistentCache<Key: CustomStringConvertible, Value: Codable> {
 	private let queue = DispatchQueue(label: "Cache", attributes: .concurrent)
 	private let internalCache = NSCache<AnyObject, AnyObject>() // The ObjC generics don't translate well here
 	
-	public let storage: CacheStorage
+	public let storage: CacheStorage?
 	public let namespace: String?
 	public let encoder = PropertyListEncoder()
 	public let decoder = PropertyListDecoder()
 	
-	public init(storage: CacheStorage = SQLiteCacheStorage.shared, namespace: String? = nil) {
+	public init(storage: CacheStorage? = SQLiteCacheStorage.shared, namespace: String? = nil) {
 		self.storage = storage
 		self.namespace = namespace
 	}
@@ -83,7 +83,7 @@ public class PersistentCache<Key: CustomStringConvertible, Value: Codable> {
 			return queue.sync {
 				if let item = self.internalCache.object(forKey: key as AnyObject) as! Item<Value>? {
 					return item
-				} else if let data = self.storage[self.stringKey(for: key)], let item = try? self.decoder.decode(Item<Value>.self, from: data) {
+				} else if let data = self.storage?[self.stringKey(for: key)], let item = try? self.decoder.decode(Item<Value>.self, from: data) {
 					return item
 				} else {
 					return nil
@@ -96,7 +96,7 @@ public class PersistentCache<Key: CustomStringConvertible, Value: Codable> {
 			queue.async(flags: .barrier) {
 				self.internalCache.setObject(newValue as AnyObject, forKey: key as AnyObject)
 				
-				self.storage[self.stringKey(for: key)] = data
+				self.storage?[self.stringKey(for: key)] = data
 			}
 		}
 	}
