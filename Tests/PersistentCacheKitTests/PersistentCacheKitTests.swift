@@ -14,6 +14,15 @@ struct Thing: Codable, Equatable {
 
 
 class PersistentCacheKitTests: XCTestCase {
+	override func setUp() {
+		super.setUp()
+		
+		try! SQLiteCacheStorage.shared.removeAll()
+	}
+	
+	
+	// MARK: - Tests
+	
 	func testExample() {
 		let key = UUID()
 		let cache = PersistentCache<UUID, Int>()
@@ -29,6 +38,67 @@ class PersistentCacheKitTests: XCTestCase {
 		XCTAssertEqual(cache[key], 5)
 	}
 	
+	func testFetchAsync() {
+		let cache = PersistentCache<UUID, Int>()
+		let key = UUID()
+		
+		do {
+			let expectation = self.expectation(description: "fetch")
+			cache.fetch(key) { value in
+				XCTAssertNil(value)
+				expectation.fulfill()
+			}
+			self.wait(for: [expectation], timeout: 5)
+		}
+		
+		do {
+			cache[key] = 5
+			let expectation = self.expectation(description: "fetch")
+			cache.fetch(key) { value in
+				XCTAssertEqual(value, 5)
+				expectation.fulfill()
+			}
+			self.wait(for: [expectation], timeout: 5)
+		}
+		
+		do {
+			let expectation = self.expectation(description: "fetch")
+			cache.fetch(key, fallback: { 10 }) { value in
+				XCTAssertEqual(value, 5)
+				expectation.fulfill()
+			}
+			self.wait(for: [expectation], timeout: 5)
+		}
+		
+		do {
+			cache[key] = nil
+			let expectation = self.expectation(description: "fetch")
+			cache.fetch(key, fallback: { 10 }) { value in
+				XCTAssertEqual(value, 10)
+				expectation.fulfill()
+			}
+			self.wait(for: [expectation], timeout: 5)
+		}
+		
+		do {
+			cache.clearMemoryCache()
+			let expectation = self.expectation(description: "fetch")
+			cache.fetch(key) { value in
+				XCTAssertEqual(value, 10)
+				expectation.fulfill()
+			}
+			self.wait(for: [expectation], timeout: 5)
+		}
+	}
+	
+	func testFetchSync() {
+		let cache = PersistentCache<UUID, Int>()
+		let key = UUID()
+		
+		XCTAssertEqual(cache.fetch(key, fallback: { 5 }), 5)
+		XCTAssertEqual(cache.fetch(key, fallback: { 10 }), 5)
+	}
+	
 	func testMemoryCache() {
 		let key = UUID()
 		let cache1 = PersistentCache<UUID, Int>(storage: nil)
@@ -38,7 +108,6 @@ class PersistentCacheKitTests: XCTestCase {
 		cache2[key] = 6
 		XCTAssertEqual(cache1[key], 5)
 		XCTAssertEqual(cache2[key], 6)
-		
 	}
 	
 	func testPerformance() {
