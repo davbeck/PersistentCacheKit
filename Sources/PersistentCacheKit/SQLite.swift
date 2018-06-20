@@ -83,17 +83,17 @@ public final class SQLiteDB {
 	
 	// MARK: - SQLite
 	
-	fileprivate var preparedStatements = [String:SQLitePreparedStatement]()
+	fileprivate var preparedStatements = [SQLitePreparedStatement]()
 	
 	public func preparedStatement(forSQL sql: String, shouldCache: Bool = true) throws -> SQLitePreparedStatement {
-		if let statement = preparedStatements[sql] {
+		if let statement = preparedStatements.first(where: { $0.sql == sql }) {
 			return statement
 		}
 		
 		let statement = try SQLitePreparedStatement(database: self, sql: sql)
 		
 		if shouldCache {
-			preparedStatements[sql] = statement
+			preparedStatements.append(statement)
 		}
 		
 		return statement
@@ -131,6 +131,11 @@ public final class SQLitePreparedStatement {
 	
 	deinit {
 		sqlite3_finalize(rawValue)
+	}
+	
+	
+	public var sql: String {
+		return String(cString: sqlite3_sql(rawValue))
 	}
 	
 	
