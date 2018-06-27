@@ -87,6 +87,7 @@ public final class SQLiteDB {
 	
 	public func preparedStatement(forSQL sql: String, shouldCache: Bool = true) throws -> SQLitePreparedStatement {
 		if let statement = preparedStatements.first(where: { $0.sql == sql }) {
+			try statement.reset()
 			return statement
 		}
 		
