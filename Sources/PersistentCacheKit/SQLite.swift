@@ -1,8 +1,12 @@
 import Foundation
 import SQLite3
+import os
 
 
 public final class SQLiteDB {
+	@available(OSX 10.12, *)
+	static let log = OSLog(subsystem: "co.davidbeck.persistent_cache_kit.plist", category: "sqlite")
+	
 	public enum Error: Swift.Error, LocalizedError {
 		case sqlite(code: Int32, message: String?)
 		case invalidDatabase
@@ -28,19 +32,6 @@ public final class SQLiteDB {
 		}
 	}
 	
-	public static let shared: SQLiteDB = {
-		do {
-			var url = try FileManager.default.url(for: .cachesDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
-			url.appendPathComponent("SQLiteDB.shared")
-			url.appendPathComponent("storage.sqlite")
-			let storage = try SQLiteDB(url: url)
-			
-			return storage
-		} catch {
-			fatalError("failed to create shared SQLiteDB: \(error)")
-		}
-	}()
-	
 	public let url: URL
 	fileprivate let rawValue: OpaquePointer
 	
@@ -65,7 +56,9 @@ public final class SQLiteDB {
 		do {
 			try close()
 		} catch {
-			print("error closing database: \(error)")
+			if #available(OSX 10.12, *) {
+				os_log("error closing database: %{public}@", log: SQLiteDB.log, type: .error, String(describing: error))
+			}
 		}
 	}
 	

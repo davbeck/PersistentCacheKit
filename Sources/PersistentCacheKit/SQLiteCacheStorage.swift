@@ -1,8 +1,12 @@
 import Foundation
 import SQLite3
+import os
 
 
 public final class SQLiteCacheStorage: CacheStorage {
+	@available(OSX 10.12, *)
+	static let log = OSLog(subsystem: "co.davidbeck.persistent_cache_kit.plist", category: "sqlite_storage")
+	
 	public static let shared: SQLiteCacheStorage? = {
 		do {
 			var url = try FileManager.default.url(for: .cachesDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
@@ -12,7 +16,9 @@ public final class SQLiteCacheStorage: CacheStorage {
 			
 			return storage
 		} catch {
-			print("SQLiteCacheStorage - failed to create shared db: \(error)")
+			if #available(OSX 10.12, *) {
+				os_log("failed to create shared db: %{public}@", log: log, type: .error, String(describing: error))
+			}
 			return nil
 		}
 	}()
@@ -37,7 +43,9 @@ public final class SQLiteCacheStorage: CacheStorage {
 				do {
 					try self._trimFilesize()
 				} catch {
-					print("SQLiteCacheStorage - failed to trim cache size: \(error)")
+					if #available(OSX 10.12, *) {
+						os_log("failed to trim cache size: %{public}@", log: SQLiteCacheStorage.log, type: .error, String(describing: error))
+					}
 				}
 			}
 		}
@@ -88,7 +96,9 @@ public final class SQLiteCacheStorage: CacheStorage {
 					
 					try statement.reset()
 				} catch {
-					print("SQLiteCacheStorage - error retrieving data from SQLite: \(error)")
+					if #available(OSX 10.12, *) {
+						os_log("error retrieving data from SQLite: %{public}@", log: SQLiteCacheStorage.log, type: .error, String(describing: error))
+					}
 				}
 				
 				return data
@@ -110,7 +120,9 @@ public final class SQLiteCacheStorage: CacheStorage {
 					
 					try self.trimIfNeeded()
 				} catch {
-					print("SQLiteCacheStorage - error saving data to SQLite: \(error)")
+					if #available(OSX 10.12, *) {
+						os_log("error saving data to SQLite: %{public}@", log: SQLiteCacheStorage.log, type: .error, String(describing: error))
+					}
 				}
 			}
 		}
@@ -173,7 +185,9 @@ public final class SQLiteCacheStorage: CacheStorage {
 		var iteration = 0
 		
 		while currentFileSize > maxFilesize && iteration < 5 {
-			print("SQLiteCacheStorage - currentFilesize \(currentFileSize) is greater than maxFilesize \(maxFilesize). Trimming cache.")
+			if #available(OSX 10.12, *) {
+				os_log("currentFilesize %{public}d is greater than maxFilesize %{public}d. Trimming cache.", log: SQLiteCacheStorage.log, type: .info, currentFileSize, maxFilesize)
+			}
 			
 			let count = try Int(ceil(Double(objectCount()) / 2))
 			
