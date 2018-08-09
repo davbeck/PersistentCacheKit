@@ -3,7 +3,7 @@ import SQLite3
 
 
 public final class SQLiteCacheStorage: CacheStorage {
-	public static let shared: SQLiteCacheStorage = {
+	public static let shared: SQLiteCacheStorage? = {
 		do {
 			var url = try FileManager.default.url(for: .cachesDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
 			url.appendPathComponent("SQLiteCacheStorage.shared")
@@ -12,7 +12,8 @@ public final class SQLiteCacheStorage: CacheStorage {
 			
 			return storage
 		} catch {
-			fatalError("SQLiteCacheStorage - failed to create shared db: \(error)")
+			print("SQLiteCacheStorage - failed to create shared db: \(error)")
+			return nil
 		}
 	}()
 	

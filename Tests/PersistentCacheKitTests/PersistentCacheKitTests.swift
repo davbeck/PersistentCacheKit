@@ -17,7 +17,7 @@ class PersistentCacheKitTests: XCTestCase {
 	override func setUp() {
 		super.setUp()
 		
-		try! SQLiteCacheStorage.shared.removeAll()
+		try! SQLiteCacheStorage.shared!.removeAll()
 	}
 	
 	
@@ -158,7 +158,6 @@ class PersistentCacheKitTests: XCTestCase {
 			url.appendPathComponent("PersistentCacheKitTests")
 			url.appendPathComponent(UUID().uuidString)
 			url.appendPathComponent("storage.sqlite")
-			print("test url: \(url.path)")
 			let storage = try SQLiteCacheStorage(url: url)
 			let cache = PersistentCache<UUID, Data>(storage: storage)
 			
