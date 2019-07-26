@@ -46,7 +46,7 @@ public class PersistentCache<Key: CustomStringConvertible & Hashable, Value: Cod
 		self.namespace = namespace
 		
 		#if os(iOS)
-			NotificationCenter.default.addObserver(self, selector: #selector(didReceiveMemoryWarning), name: .UIApplicationDidReceiveMemoryWarning, object: nil)
+		NotificationCenter.default.addObserver(self, selector: #selector(didReceiveMemoryWarning), name: UIApplication.didReceiveMemoryWarningNotification, object: nil)
 		#endif
 	}
 	

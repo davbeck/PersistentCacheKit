@@ -12,7 +12,7 @@ Pod::Spec.new do |s|
   s.ios.deployment_target = '10.0'
   s.osx.deployment_target = '10.10'
   s.static_framework = true
-  s.swift_version = '4.1'
+  s.swift_version = '5.0'
 
   s.source_files = 'Sources/PersistentCacheKit/**/*'
 end
