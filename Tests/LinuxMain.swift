@@ -1,6 +1,6 @@
-import XCTest
 @testable import PersistentCacheKitTests
+import XCTest
 
 XCTMain([
-    testCase(PersistentCacheKitTests.allTests),
+	testCase(PersistentCacheKitTests.allTests),
 ])

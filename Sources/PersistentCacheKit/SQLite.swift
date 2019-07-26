@@ -1,7 +1,6 @@
 import Foundation
-import SQLite3
 import os
-
+import SQLite3
 
 public final class SQLiteDB {
 	@available(OSX 10.12, *)
@@ -13,10 +12,9 @@ public final class SQLiteDB {
 		case invalidStatement
 		case invalidUTF8String
 		
-		
 		public var errorDescription: String? {
 			switch self {
-			case .sqlite(code: let code, message: let message):
+			case let .sqlite(code: code, message: message):
 				if let message = message {
 					return "SQLite error \(code): '\(message)'."
 				} else {
@@ -70,9 +68,8 @@ public final class SQLiteDB {
 	}
 	
 	public func errorMessage() -> String? {
-		return String(utf8String: sqlite3_errmsg(rawValue))
+		return String(utf8String: sqlite3_errmsg(self.rawValue))
 	}
-	
 	
 	// MARK: - SQLite
 	
@@ -87,7 +84,7 @@ public final class SQLiteDB {
 		let statement = try SQLitePreparedStatement(database: self, sql: sql)
 		
 		if shouldCache {
-			preparedStatements.append(statement)
+			self.preparedStatements.append(statement)
 		}
 		
 		return statement
@@ -110,7 +107,7 @@ public final class SQLitePreparedStatement {
 	
 	fileprivate init(database: SQLiteDB, sql: String) throws {
 		self.database = database
-		var statement: OpaquePointer? = nil
+		var statement: OpaquePointer?
 		
 		let result = sqlite3_prepare_v2(database.rawValue, sql, -1, &statement, nil)
 		guard result == SQLITE_OK || result == SQLITE_DONE else {
@@ -127,18 +124,16 @@ public final class SQLitePreparedStatement {
 		sqlite3_finalize(rawValue)
 	}
 	
-	
 	public var sql: String {
-		return String(cString: sqlite3_sql(rawValue))
+		return String(cString: sqlite3_sql(self.rawValue))
 	}
-	
 	
 	@discardableResult
 	public func step() throws -> Bool {
 		let result = sqlite3_step(rawValue)
 		
 		guard result == SQLITE_DONE || result == SQLITE_ROW || result == SQLITE_OK else {
-			throw SQLiteDB.Error.sqlite(code: result, message: database?.errorMessage())
+			throw SQLiteDB.Error.sqlite(code: result, message: self.database?.errorMessage())
 		}
 		
 		return result == SQLITE_ROW
@@ -148,17 +143,16 @@ public final class SQLitePreparedStatement {
 		let result = sqlite3_reset(rawValue)
 		
 		guard result == SQLITE_DONE || result == SQLITE_OK else {
-			throw SQLiteDB.Error.sqlite(code: result, message: database?.errorMessage())
+			throw SQLiteDB.Error.sqlite(code: result, message: self.database?.errorMessage())
 		}
 		
 		self.boundData = [:]
 	}
 	
-	
 	// MARK: - Binding
 	
 	public func bindNull(at index: Int32) throws {
-		try database?.verify(result: sqlite3_bind_null(rawValue, index))
+		try self.database?.verify(result: sqlite3_bind_null(self.rawValue, index))
 	}
 	
 	public func bind(_ value: Int?, at index: Int32) throws {
@@ -168,9 +162,9 @@ public final class SQLitePreparedStatement {
 		}
 		
 		if MemoryLayout<Int>.size == MemoryLayout<Int32>.size {
-			try database?.verify(result: sqlite3_bind_int(rawValue, index, Int32(value)))
+			try self.database?.verify(result: sqlite3_bind_int(self.rawValue, index, Int32(value)))
 		} else {
-			try database?.verify(result: sqlite3_bind_int64(rawValue, index, Int64(value)))
+			try self.database?.verify(result: sqlite3_bind_int64(self.rawValue, index, Int64(value)))
 		}
 	}
 	
@@ -180,7 +174,7 @@ public final class SQLitePreparedStatement {
 			return
 		}
 		
-		try database?.verify(result: sqlite3_bind_double(rawValue, index, value))
+		try self.database?.verify(result: sqlite3_bind_double(self.rawValue, index, value))
 	}
 	
 	public func bind(_ value: String?, at index: Int32) throws {
@@ -191,15 +185,15 @@ public final class SQLitePreparedStatement {
 		
 		guard let data = value.data(using: .utf8) else { throw SQLiteDB.Error.invalidUTF8String }
 		
-		try data.withUnsafeBytes({ (bytes: UnsafePointer<Int8>) in
+		try data.withUnsafeBytes { (bytes: UnsafePointer<Int8>) in
 			try database?.verify(result: sqlite3_bind_text(rawValue, index, bytes, Int32(data.count), nil))
-		})
+		}
 	}
 	
 	/// Data bound as a blob
 	///
 	/// We need to keep this data alive until the blob is replaced at the given index or the receiver is deallocated.
-	fileprivate var boundData = [Int32:Data]()
+	fileprivate var boundData = [Int32: Data]()
 	
 	public func bind(_ value: Data?, at index: Int32) throws {
 		guard let value = value else {
@@ -207,9 +201,9 @@ public final class SQLitePreparedStatement {
 			return
 		}
 		
-		boundData[index] = value
+		self.boundData[index] = value
 		
-		_ = try value.withUnsafeBytes { (bytes) in
+		_ = try value.withUnsafeBytes { bytes in
 			try database?.verify(result: sqlite3_bind_blob(rawValue, index, bytes, Int32(value.count)) { _ in })
 		}
 	}
@@ -217,7 +211,6 @@ public final class SQLitePreparedStatement {
 	public func bind(_ value: Date?, at index: Int32) throws {
 		try self.bind(value?.timeIntervalSince1970, at: index)
 	}
-	
 	
 	// MARK: - Query Results
 	
@@ -248,23 +241,23 @@ public final class SQLitePreparedStatement {
 	}
 	
 	public func getType(atColumn column: Int32) -> ColumnType? {
-		return ColumnType(sqliteRawValue: sqlite3_column_type(rawValue, column))
+		return ColumnType(sqliteRawValue: sqlite3_column_type(self.rawValue, column))
 	}
 	
 	public func getInt(atColumn column: Int32) -> Int? {
 		guard self.getType(atColumn: column) != .null else { return nil }
 		
 		if MemoryLayout<Int>.size == MemoryLayout<Int32>.size {
-			return Int(sqlite3_column_int(rawValue, column))
+			return Int(sqlite3_column_int(self.rawValue, column))
 		} else {
-			return Int(sqlite3_column_int64(rawValue, column))
+			return Int(sqlite3_column_int64(self.rawValue, column))
 		}
 	}
 	
 	public func getDouble(atColumn column: Int32) -> Double? {
 		guard self.getType(atColumn: column) != .null else { return nil }
 		
-		return sqlite3_column_double(rawValue, column)
+		return sqlite3_column_double(self.rawValue, column)
 	}
 	
 	public func getString(atColumn column: Int32) -> String? {

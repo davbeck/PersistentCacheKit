@@ -1,13 +1,11 @@
 import Foundation
 #if os(iOS)
-import UIKit
+	import UIKit
 #endif
 
-
 public protocol CacheStorage: class {
-	subscript(key: String) -> Data? { get set }
+	subscript(_: String) -> Data? { get set }
 }
-
 
 public struct Item<Value: Codable>: Codable {
 	public var expiration: Date?
@@ -31,10 +29,9 @@ public struct Item<Value: Codable>: Codable {
 	}
 }
 
-
 public class PersistentCache<Key: CustomStringConvertible & Hashable, Value: Codable> {
 	private let queue = DispatchQueue(label: "Cache", attributes: .concurrent)
-	private var internalCache = Dictionary<Key, Item<Value>>()
+	private var internalCache = [Key: Item<Value>]()
 	
 	public let storage: CacheStorage?
 	public let namespace: String?
@@ -46,17 +43,16 @@ public class PersistentCache<Key: CustomStringConvertible & Hashable, Value: Cod
 		self.namespace = namespace
 		
 		#if os(iOS)
-		NotificationCenter.default.addObserver(self, selector: #selector(didReceiveMemoryWarning), name: UIApplication.didReceiveMemoryWarningNotification, object: nil)
+			NotificationCenter.default.addObserver(self, selector: #selector(self.didReceiveMemoryWarning), name: UIApplication.didReceiveMemoryWarningNotification, object: nil)
 		#endif
 	}
-	
 	
 	@objc private func didReceiveMemoryWarning() {
 		self.clearMemoryCache()
 	}
 	
 	public func clearMemoryCache(completion: (() -> Void)? = nil) {
-		queue.async(flags: .barrier) {
+		self.queue.async(flags: .barrier) {
 			self.internalCache = [:]
 			
 			if let completion = completion {
@@ -66,7 +62,6 @@ public class PersistentCache<Key: CustomStringConvertible & Hashable, Value: Cod
 			}
 		}
 	}
-	
 	
 	private func stringKey(for key: Key) -> String {
 		if let namespace = namespace {
@@ -85,13 +80,13 @@ public class PersistentCache<Key: CustomStringConvertible & Hashable, Value: Cod
 			}
 		}
 		set {
-			self[item: key] = newValue.map({ Item($0) })
+			self[item: key] = newValue.map { Item($0) }
 		}
 	}
 	
 	public subscript(item key: Key) -> Item<Value>? {
 		get {
-			return queue.sync {
+			return self.queue.sync {
 				if let item = self.internalCache[key] {
 					return item
 				} else if let data = self.storage?[self.stringKey(for: key)], let item = try? self.decoder.decode(Item<Value>.self, from: data) {
@@ -104,7 +99,7 @@ public class PersistentCache<Key: CustomStringConvertible & Hashable, Value: Cod
 		set {
 			let data = try? self.encoder.encode(newValue)
 			
-			queue.async(flags: .barrier) {
+			self.queue.async(flags: .barrier) {
 				self.internalCache[key] = newValue
 				
 				self.storage?[self.stringKey(for: key)] = data
@@ -135,13 +130,13 @@ public class PersistentCache<Key: CustomStringConvertible & Hashable, Value: Cod
 			if let item = self.internalCache[key], item.isValid {
 				completion(item.value)
 			} else {
-				self.queue.async() {
+				self.queue.async {
 					if let data = self.storage?[self.stringKey(for: key)], let item = try? self.decoder.decode(Item<Value>.self, from: data) {
-						queue.async() {
+						queue.async {
 							completion(item.value)
 						}
 					} else {
-						queue.async() {
+						queue.async {
 							if let value = fallback?() {
 								self[key] = value
 								
@@ -165,8 +160,8 @@ public class PersistentCache<Key: CustomStringConvertible & Hashable, Value: Cod
 	///   - queue: The queue that the completion and fallback blocks will be called on.
 	///   - fallback: The value to use if a value for the key does not exist.
 	///   - completion: The block to call when a result is found. This will always be called.
-	public func fetch(_ key: Key, queue: DispatchQueue = .main, fallback: @escaping () -> Value, completion: @escaping (Value) -> Void) {
-		_fetch(key, fallback: fallback) { completion($0!) }
+	public func fetch(_ key: Key, queue _: DispatchQueue = .main, fallback: @escaping () -> Value, completion: @escaping (Value) -> Void) {
+		self._fetch(key, fallback: fallback) { completion($0!) }
 	}
 	
 	/// Asynchronously fetches data from the filesystem.
@@ -177,7 +172,7 @@ public class PersistentCache<Key: CustomStringConvertible & Hashable, Value: Cod
 	///   - key: The key to lookup.
 	///   - queue: The queue that the completion block will be called on.
 	///   - completion: The block to call when a result is found. This will always be called.
-	public func fetch(_ key: Key, queue: DispatchQueue = .main, completion: @escaping (Value?) -> Void) {
-		_fetch(key, fallback: nil, completion: completion)
+	public func fetch(_ key: Key, queue _: DispatchQueue = .main, completion: @escaping (Value?) -> Void) {
+		self._fetch(key, fallback: nil, completion: completion)
 	}
 }

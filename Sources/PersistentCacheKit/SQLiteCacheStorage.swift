@@ -1,7 +1,6 @@
 import Foundation
-import SQLite3
 import os
-
+import SQLite3
 
 public final class SQLiteCacheStorage: CacheStorage {
 	@available(OSX 10.12, *)
@@ -23,12 +22,11 @@ public final class SQLiteCacheStorage: CacheStorage {
 		}
 	}()
 	
-	
 	private let db: SQLiteDB
 	private let queue = DispatchQueue(label: "SQLiteCacheStorage")
 	
 	public var url: URL {
-		return db.url
+		return self.db.url
 	}
 	
 	public init(url: URL) throws {
@@ -52,7 +50,7 @@ public final class SQLiteCacheStorage: CacheStorage {
 	}
 	
 	public func removeAll() throws {
-		try queue.sync {
+		try self.queue.sync {
 			do {
 				let sql = "DELETE FROM cache_storage;"
 				let statement = try self.db.preparedStatement(forSQL: sql)
@@ -71,7 +69,6 @@ public final class SQLiteCacheStorage: CacheStorage {
 		}
 	}
 	
-	
 	// MARK: - Queries
 	
 	private func createTable() throws {
@@ -81,7 +78,7 @@ public final class SQLiteCacheStorage: CacheStorage {
 	
 	public subscript(key: String) -> Data? {
 		get {
-			return queue.sync {
+			return self.queue.sync {
 				var data: Data?
 				
 				do {
@@ -105,7 +102,7 @@ public final class SQLiteCacheStorage: CacheStorage {
 			}
 		}
 		set {
-			queue.async {
+			self.queue.async {
 				do {
 					let sql = "INSERT OR REPLACE INTO cache_storage (key, data, createdAt) VALUES (?, ?, ?)"
 					
@@ -128,7 +125,6 @@ public final class SQLiteCacheStorage: CacheStorage {
 		}
 	}
 	
-	
 	private var lastTrimmed: Date?
 	
 	private func currentFilesize(fast: Bool) throws -> Int {
@@ -146,7 +142,7 @@ public final class SQLiteCacheStorage: CacheStorage {
 			
 			return currentFilesize
 		} else {
-			return try FileManager.default.attributesOfItem(atPath: url.path)[.size] as? Int ?? 0
+			return try FileManager.default.attributesOfItem(atPath: self.url.path)[.size] as? Int ?? 0
 		}
 	}
 	
@@ -170,11 +166,11 @@ public final class SQLiteCacheStorage: CacheStorage {
 			return
 		}
 		
-		try _trimFilesize()
+		try self._trimFilesize()
 	}
 	
 	public func trimFilesize() throws {
-		try queue.sync {
+		try self.queue.sync {
 			try self._trimFilesize(fast: false)
 		}
 	}
@@ -206,10 +202,10 @@ public final class SQLiteCacheStorage: CacheStorage {
 				try statement.reset()
 			}
 			
-			currentFileSize = try currentFilesize(fast: false)
+			currentFileSize = try self.currentFilesize(fast: false)
 			iteration += 1
 		}
 		
-		lastTrimmed = Date()
+		self.lastTrimmed = Date()
 	}
 }
