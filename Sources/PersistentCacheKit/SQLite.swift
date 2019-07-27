@@ -183,11 +183,8 @@ public final class SQLitePreparedStatement {
 			return
 		}
 		
-		guard let data = value.data(using: .utf8) else { throw SQLiteDB.Error.invalidUTF8String }
-		
-		try data.withUnsafeBytes { (bytes: UnsafePointer<Int8>) in
-			try database?.verify(result: sqlite3_bind_text(rawValue, index, bytes, Int32(data.count), nil))
-		}
+		guard let cString = value.cString(using: .utf8) else { throw SQLiteDB.Error.invalidUTF8String }
+		try database?.verify(result: sqlite3_bind_text(rawValue, index, cString, Int32(cString.count), nil))
 	}
 	
 	/// Data bound as a blob
@@ -203,7 +200,8 @@ public final class SQLitePreparedStatement {
 		
 		self.boundData[index] = value
 		
-		_ = try value.withUnsafeBytes { bytes in
+		try value.withUnsafeBytes { (buffer: UnsafeRawBufferPointer) in
+			guard let bytes = buffer.baseAddress?.assumingMemoryBound(to: Int8.self) else { return }
 			try database?.verify(result: sqlite3_bind_blob(rawValue, index, bytes, Int32(value.count)) { _ in })
 		}
 	}

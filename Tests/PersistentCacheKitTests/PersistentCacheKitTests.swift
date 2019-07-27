@@ -12,17 +12,28 @@ struct Thing: Codable, Equatable {
 }
 
 class PersistentCacheKitTests: XCTestCase {
+	var cacheStorage: SQLiteCacheStorage!
+	
 	override func setUp() {
 		super.setUp()
 		
-		try! SQLiteCacheStorage.shared!.removeAll()
+		let url = FileManager.default.temporaryDirectory
+		.appendingPathComponent(UUID().uuidString)
+		.appendingPathExtension("sqlite")
+		cacheStorage = try! SQLiteCacheStorage(url: url)
+	}
+	
+	override func tearDown() {
+		super.tearDown()
+		
+		try! cacheStorage.removeAll()
 	}
 	
 	// MARK: - Tests
 	
 	func testExample() {
 		let key = UUID()
-		let cache = PersistentCache<UUID, Int>()
+		let cache = PersistentCache<UUID, Int>(storage: cacheStorage)
 		
 		cache[key] = 5
 		
@@ -36,7 +47,7 @@ class PersistentCacheKitTests: XCTestCase {
 	}
 	
 	func testFetchAsync() {
-		let cache = PersistentCache<UUID, Int>()
+		let cache = PersistentCache<UUID, Int>(storage: cacheStorage)
 		let key = UUID()
 		
 		do {
@@ -89,7 +100,7 @@ class PersistentCacheKitTests: XCTestCase {
 	}
 	
 	func testFetchSync() {
-		let cache = PersistentCache<UUID, Int>()
+		let cache = PersistentCache<UUID, Int>(storage: cacheStorage)
 		let key = UUID()
 		
 		XCTAssertEqual(cache.fetch(key, fallback: { 5 }), 5)
@@ -108,7 +119,7 @@ class PersistentCacheKitTests: XCTestCase {
 	}
 	
 	func testPerformance() {
-		let cache = PersistentCache<Int, Thing>()
+		let cache = PersistentCache<Int, Thing>(storage: cacheStorage)
 		
 		let things = (0..<100).map { _ in Thing() }
 		measure {
@@ -131,8 +142,8 @@ class PersistentCacheKitTests: XCTestCase {
 	func testNamespaces() {
 		let key = UUID()
 		
-		let cacheA = PersistentCache<UUID, Int>(namespace: "A")
-		let cacheB = PersistentCache<UUID, Int>(namespace: "B")
+		let cacheA = PersistentCache<UUID, Int>(storage: cacheStorage, namespace: "A")
+		let cacheB = PersistentCache<UUID, Int>(storage: cacheStorage, namespace: "B")
 		
 		cacheA[key] = 5
 		cacheB[key] = 10
