@@ -2,8 +2,11 @@ import Foundation
 import os
 import SQLite3
 
+let SQLITE_STATIC = unsafeBitCast(0, to: sqlite3_destructor_type.self)
+let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
+
 public final class SQLiteDB {
-	@available(OSX 10.12, *)
+	@available(OSX 10.12, iOS 10.0, watchOS 3.0, tvOS 10.0, *)
 	static let log = OSLog(subsystem: "co.davidbeck.persistent_cache_kit.plist", category: "sqlite")
 	
 	public enum Error: Swift.Error, LocalizedError {
@@ -54,7 +57,7 @@ public final class SQLiteDB {
 		do {
 			try close()
 		} catch {
-			if #available(OSX 10.12, *) {
+			if #available(OSX 10.12, iOS 10.0, watchOS 3.0, tvOS 10.0, *) {
 				os_log("error closing database: %{public}@", log: SQLiteDB.log, type: .error, String(describing: error))
 			}
 		}
@@ -183,8 +186,7 @@ public final class SQLitePreparedStatement {
 			return
 		}
 		
-		guard let cString = value.cString(using: .utf8) else { throw SQLiteDB.Error.invalidUTF8String }
-		try database?.verify(result: sqlite3_bind_text(rawValue, index, cString, Int32(cString.count), nil))
+		try database?.verify(result: sqlite3_bind_text(rawValue, index, value, Int32(value.utf8.count), SQLITE_TRANSIENT))
 	}
 	
 	/// Data bound as a blob

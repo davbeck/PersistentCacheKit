@@ -3,7 +3,7 @@ import os
 import SQLite3
 
 public final class SQLiteCacheStorage: CacheStorage {
-	@available(OSX 10.12, *)
+	@available(OSX 10.12, iOS 10.0, watchOS 3.0, tvOS 10.0, *)
 	static let log = OSLog(subsystem: "co.davidbeck.persistent_cache_kit.plist", category: "sqlite_storage")
 	
 	public static let shared: SQLiteCacheStorage? = {
@@ -15,7 +15,7 @@ public final class SQLiteCacheStorage: CacheStorage {
 			
 			return storage
 		} catch {
-			if #available(OSX 10.12, *) {
+			if #available(OSX 10.12, iOS 10.0, watchOS 3.0, tvOS 10.0, *) {
 				os_log("failed to create shared db: %{public}@", log: log, type: .error, String(describing: error))
 			}
 			return nil
@@ -41,7 +41,7 @@ public final class SQLiteCacheStorage: CacheStorage {
 				do {
 					try self._trimFilesize()
 				} catch {
-					if #available(OSX 10.12, *) {
+					if #available(OSX 10.12, iOS 10.0, watchOS 3.0, tvOS 10.0, *) {
 						os_log("failed to trim cache size: %{public}@", log: SQLiteCacheStorage.log, type: .error, String(describing: error))
 					}
 				}
@@ -93,7 +93,7 @@ public final class SQLiteCacheStorage: CacheStorage {
 					
 					try statement.reset()
 				} catch {
-					if #available(OSX 10.12, *) {
+					if #available(OSX 10.12, iOS 10.0, watchOS 3.0, tvOS 10.0, *) {
 						os_log("error retrieving data from SQLite: %{public}@", log: SQLiteCacheStorage.log, type: .error, String(describing: error))
 					}
 				}
@@ -117,7 +117,7 @@ public final class SQLiteCacheStorage: CacheStorage {
 					
 					try self.trimIfNeeded()
 				} catch {
-					if #available(OSX 10.12, *) {
+					if #available(OSX 10.12, iOS 10.0, watchOS 3.0, tvOS 10.0, *) {
 						os_log("error saving data to SQLite: %{public}@", log: SQLiteCacheStorage.log, type: .error, String(describing: error))
 					}
 				}
@@ -181,7 +181,7 @@ public final class SQLiteCacheStorage: CacheStorage {
 		var iteration = 0
 		
 		while currentFileSize > maxFilesize && iteration < 5 {
-			if #available(OSX 10.12, *) {
+			if #available(OSX 10.12, iOS 10.0, watchOS 3.0, tvOS 10.0, *) {
 				os_log("currentFilesize %{public}d is greater than maxFilesize %{public}d. Trimming cache.", log: SQLiteCacheStorage.log, type: .info, currentFileSize, maxFilesize)
 			}
 			
@@ -207,5 +207,12 @@ public final class SQLiteCacheStorage: CacheStorage {
 		}
 		
 		self.lastTrimmed = Date()
+	}
+	
+	
+	
+	/// Wait until all operations have been completed and data has been saved.
+	public func sync() {
+		queue.sync {}
 	}
 }

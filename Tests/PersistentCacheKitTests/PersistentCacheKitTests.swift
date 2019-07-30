@@ -13,20 +13,21 @@ struct Thing: Codable, Equatable {
 
 class PersistentCacheKitTests: XCTestCase {
 	var cacheStorage: SQLiteCacheStorage!
+	let url = FileManager.default.temporaryDirectory
+		.appendingPathComponent(UUID().uuidString)
+		.appendingPathComponent("cache")
+		.appendingPathExtension("sqlite")
 	
 	override func setUp() {
 		super.setUp()
 		
-		let url = FileManager.default.temporaryDirectory
-		.appendingPathComponent(UUID().uuidString)
-		.appendingPathExtension("sqlite")
 		cacheStorage = try! SQLiteCacheStorage(url: url)
 	}
 	
 	override func tearDown() {
 		super.tearDown()
 		
-		try! cacheStorage.removeAll()
+		cacheStorage = nil
 	}
 	
 	// MARK: - Tests
@@ -44,6 +45,19 @@ class PersistentCacheKitTests: XCTestCase {
 		self.wait(for: [expectation], timeout: 5)
 		
 		XCTAssertEqual(cache[key], 5)
+	}
+	
+	func testMultipleStores() throws {
+		let key = UUID()
+		let cache = PersistentCache<UUID, Int>(storage: cacheStorage)
+		
+		cache[key] = 5
+		cache.sync()
+		
+		let otherCacheStorage = try SQLiteCacheStorage(url: url)
+		let otherCache = PersistentCache<UUID, Int>(storage: otherCacheStorage)
+		
+		XCTAssertEqual(otherCache[key], 5)
 	}
 	
 	func testFetchAsync() {

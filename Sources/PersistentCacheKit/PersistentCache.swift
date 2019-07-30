@@ -5,6 +5,12 @@ import Foundation
 
 public protocol CacheStorage: class {
 	subscript(_: String) -> Data? { get set }
+	/// Wait until all operations have been completed and data has been saved.
+	func sync()
+}
+
+extension CacheStorage {
+	func sync() {}
 }
 
 public struct Item<Value: Codable>: Codable {
@@ -174,5 +180,11 @@ public class PersistentCache<Key: CustomStringConvertible & Hashable, Value: Cod
 	///   - completion: The block to call when a result is found. This will always be called.
 	public func fetch(_ key: Key, queue _: DispatchQueue = .main, completion: @escaping (Value?) -> Void) {
 		self._fetch(key, fallback: nil, completion: completion)
+	}
+	
+	/// Wait until all operations have been completed and data has been saved.
+	public func sync() {
+		queue.sync {}
+		self.storage?.sync()
 	}
 }
