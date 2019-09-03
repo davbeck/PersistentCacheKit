@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|
   s.name             = 'PersistentCacheKit'
-  s.version          = '0.4.1'
+  s.version          = '0.4.2'
   s.summary          = 'A Swift library for caching items to the filesystem (using SQLite by default).'
 
   s.homepage         = 'https://github.com/davbeck/PersistentCacheKit'
