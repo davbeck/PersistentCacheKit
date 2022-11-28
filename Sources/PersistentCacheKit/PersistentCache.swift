@@ -1,9 +1,10 @@
 import Foundation
+import Combine
 #if os(iOS)
 	import UIKit
 #endif
 
-public protocol CacheStorage: class {
+public protocol CacheStorage: AnyObject {
 	subscript(_: String) -> Data? { get set }
 	/// Wait until all operations have been completed and data has been saved.
 	func sync()
@@ -16,7 +17,7 @@ extension CacheStorage {
 public struct Item<Value: Codable>: Codable {
 	public var expiration: Date?
 	public var value: Value
-	
+
 	public var isValid: Bool {
 		if let expiration = expiration {
 			return expiration.timeIntervalSinceNow >= 0
@@ -24,12 +25,12 @@ public struct Item<Value: Codable>: Codable {
 			return true
 		}
 	}
-	
+
 	public init(_ value: Value, expiration: Date? = nil) {
 		self.value = value
 		self.expiration = expiration
 	}
-	
+
 	public init(_ value: Value, expiresIn: TimeInterval) {
 		self.init(value, expiration: Date(timeIntervalSinceNow: expiresIn))
 	}
@@ -38,29 +39,29 @@ public struct Item<Value: Codable>: Codable {
 public class PersistentCache<Key: CustomStringConvertible & Hashable, Value: Codable> {
 	private let queue = DispatchQueue(label: "Cache", attributes: .concurrent)
 	private var internalCache = [Key: Item<Value>]()
-	
+
 	public let storage: CacheStorage?
 	public let namespace: String?
 	public let encoder = PropertyListEncoder()
 	public let decoder = PropertyListDecoder()
-	
+
 	public init(storage: CacheStorage? = SQLiteCacheStorage.shared, namespace: String? = nil) {
 		self.storage = storage
 		self.namespace = namespace
-		
+
 		#if os(iOS)
 			NotificationCenter.default.addObserver(self, selector: #selector(self.didReceiveMemoryWarning), name: UIApplication.didReceiveMemoryWarningNotification, object: nil)
 		#endif
 	}
-	
+
 	@objc private func didReceiveMemoryWarning() {
 		self.clearMemoryCache()
 	}
-	
+
 	public func clearMemoryCache(completion: (() -> Void)? = nil) {
 		self.queue.async(flags: .barrier) {
 			self.internalCache = [:]
-			
+
 			if let completion = completion {
 				DispatchQueue.global().async {
 					completion()
@@ -68,7 +69,7 @@ public class PersistentCache<Key: CustomStringConvertible & Hashable, Value: Cod
 			}
 		}
 	}
-	
+
 	private func stringKey(for key: Key) -> String {
 		if let namespace = namespace {
 			return namespace + key.description
@@ -76,7 +77,15 @@ public class PersistentCache<Key: CustomStringConvertible & Hashable, Value: Cod
 			return key.description
 		}
 	}
-	
+
+	private let updated = PassthroughSubject<(key: Key, value: Value?), Never>()
+
+	public func updates(for key: Key) -> some Publisher<Value?, Never> {
+		updated
+			.filter { $0.key == key }
+			.map(\.value)
+	}
+
 	public subscript(key: Key) -> Value? {
 		get {
 			if let item = self[item: key], item.isValid {
@@ -89,10 +98,10 @@ public class PersistentCache<Key: CustomStringConvertible & Hashable, Value: Cod
 			self[item: key] = newValue.map { Item($0) }
 		}
 	}
-	
+
 	public subscript(item key: Key) -> Item<Value>? {
 		get {
-			return self.queue.sync {
+			self.queue.sync {
 				if let item = self.internalCache[key] {
 					return item
 				} else if let data = self.storage?[self.stringKey(for: key)], let item = try? self.decoder.decode(Item<Value>.self, from: data) {
@@ -104,15 +113,17 @@ public class PersistentCache<Key: CustomStringConvertible & Hashable, Value: Cod
 		}
 		set {
 			let data = try? self.encoder.encode(newValue)
-			
+
 			self.queue.async(flags: .barrier) {
 				self.internalCache[key] = newValue
-				
+
 				self.storage?[self.stringKey(for: key)] = data
+				
+				self.updated.send((key, newValue?.value))
 			}
 		}
 	}
-	
+
 	/// Find a value or generate it if one doesn't exist.
 	///
 	/// If a value for the given key does not already exist in the cache, the fallback value will be used instead and saved for later use.
@@ -130,7 +141,7 @@ public class PersistentCache<Key: CustomStringConvertible & Hashable, Value: Cod
 			return value
 		}
 	}
-	
+
 	private func _fetch(_ key: Key, queue: DispatchQueue = .main, fallback: (() -> Value)?, completion: @escaping (Value?) -> Void) {
 		self.queue.sync {
 			if let item = self.internalCache[key], item.isValid {
@@ -145,7 +156,7 @@ public class PersistentCache<Key: CustomStringConvertible & Hashable, Value: Cod
 						queue.async {
 							if let value = fallback?() {
 								self[key] = value
-								
+
 								completion(value)
 							} else {
 								completion(nil)
@@ -156,7 +167,7 @@ public class PersistentCache<Key: CustomStringConvertible & Hashable, Value: Cod
 			}
 		}
 	}
-	
+
 	/// Asynchronously fetches data from the filesystem.
 	///
 	/// This method will sychronously check the in memory cache for the value and call completion immediately if a value is found. Otherwise it will asynchrounously check the filesystem on a background queue. Finally, if no value exists it will call the fallback block and save the returned value to the cache.
@@ -169,7 +180,7 @@ public class PersistentCache<Key: CustomStringConvertible & Hashable, Value: Cod
 	public func fetch(_ key: Key, queue _: DispatchQueue = .main, fallback: @escaping () -> Value, completion: @escaping (Value) -> Void) {
 		self._fetch(key, fallback: fallback) { completion($0!) }
 	}
-	
+
 	/// Asynchronously fetches data from the filesystem.
 	///
 	/// This method will sychronously check the in memory cache for the value and call completion immediately if a value is found. Otherwise it will asynchrounously check the filesystem on a background queue.
@@ -181,7 +192,7 @@ public class PersistentCache<Key: CustomStringConvertible & Hashable, Value: Cod
 	public func fetch(_ key: Key, queue _: DispatchQueue = .main, completion: @escaping (Value?) -> Void) {
 		self._fetch(key, fallback: nil, completion: completion)
 	}
-	
+
 	/// Wait until all operations have been completed and data has been saved.
 	public func sync() {
 		queue.sync {}
