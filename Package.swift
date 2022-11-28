@@ -1,11 +1,11 @@
-// swift-tools-version:5.0
+// swift-tools-version: 5.7
 import PackageDescription
 
 let package = Package(
 	name: "PersistentCacheKit",
 	platforms: [
-		.macOS(.v10_10),
-		.iOS(.v10),
+		.macOS(.v10_15),
+		.iOS(.v15),
 	],
 	products: [
 		.library(
@@ -21,7 +21,7 @@ let package = Package(
 		),
 		.testTarget(
 			name: "PersistentCacheKitTests",
-			dependencies: []
+			dependencies: ["PersistentCacheKit"]
 		),
 	]
 )
