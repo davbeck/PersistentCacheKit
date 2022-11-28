@@ -164,7 +164,7 @@ public class MixedPersistentCache {
 	
 	/// Wait until all operations have been completed and data has been saved.
 	public func sync() {
-		queue.sync {}
+		self.queue.sync {}
 		self.storage?.sync()
 	}
 }

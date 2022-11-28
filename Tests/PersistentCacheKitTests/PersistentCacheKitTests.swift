@@ -3,7 +3,7 @@ import XCTest
 
 struct Thing: Codable, Equatable {
 	var a: String = (0..<10).map { String(arc4random_uniform($0 * 2)) }.joined()
-	var b: Int = Int(arc4random())
+	var b: Int = .init(arc4random())
 	var c: Bool = arc4random_uniform(2) == 0
 	
 	static func == (lhs: Thing, rhs: Thing) -> Bool {
@@ -21,13 +21,13 @@ class PersistentCacheKitTests: XCTestCase {
 	override func setUp() {
 		super.setUp()
 		
-		cacheStorage = try! SQLiteCacheStorage(url: url)
+		self.cacheStorage = try! SQLiteCacheStorage(url: self.url)
 	}
 	
 	override func tearDown() {
 		super.tearDown()
 		
-		cacheStorage = nil
+		self.cacheStorage = nil
 	}
 	
 	// MARK: - Tests
@@ -164,7 +164,7 @@ class PersistentCacheKitTests: XCTestCase {
 		
 		self.wait(for: [cacheA, cacheB].map { cache in
 			let expectation = self.expectation(description: "Clear memory cache")
-			cache.clearMemoryCache() {
+			cache.clearMemoryCache {
 				expectation.fulfill()
 			}
 			return expectation

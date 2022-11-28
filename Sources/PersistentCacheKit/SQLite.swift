@@ -186,7 +186,7 @@ public final class SQLitePreparedStatement {
 			return
 		}
 		
-		try database?.verify(result: sqlite3_bind_text(rawValue, index, value, Int32(value.utf8.count), SQLITE_TRANSIENT))
+		try self.database?.verify(result: sqlite3_bind_text(self.rawValue, index, value, Int32(value.utf8.count), SQLITE_TRANSIENT))
 	}
 	
 	/// Data bound as a blob
