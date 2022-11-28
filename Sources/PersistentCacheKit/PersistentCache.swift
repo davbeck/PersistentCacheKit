@@ -1,4 +1,5 @@
 import Foundation
+import AsyncAlgorithms
 #if os(iOS)
 	import UIKit
 #endif
@@ -80,6 +81,14 @@ public actor PersistentCache<Key: CustomStringConvertible & Hashable, Value: Cod
 		}
 	}
 
+	private let cacheUpdated = AsyncChannel<(key: Key, value: Value?)>()
+	// TODO: switch to some AsyncSequence<Value?> when available
+	func updates(for key: Key) -> AsyncMapSequence<AsyncFilterSequence<AsyncChannel<(key: Key, value: Value?)>>, Value?> {
+		cacheUpdated
+			.filter { $0.key == key }
+			.map(\.value)
+	}
+
 	public func get(_ key: Key) async -> Value? {
 		if let item = await self.get(item: key), item.isValid {
 			return item.value
@@ -106,7 +115,7 @@ public actor PersistentCache<Key: CustomStringConvertible & Hashable, Value: Cod
 		self.internalCache[key] = item
 
 		let data = await Task { try? self.encoder.encode(item) }.value
-		
+
 		await self.storage?.set(self.stringKey(for: key), value: data)
 	}
 

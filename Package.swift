@@ -13,11 +13,15 @@ let package = Package(
 			targets: ["PersistentCacheKit"]
 		),
 	],
-	dependencies: [],
+	dependencies: [
+		.package(url: "https://github.com/apple/swift-async-algorithms", from: "0.0.3"),
+	],
 	targets: [
 		.target(
 			name: "PersistentCacheKit",
-			dependencies: []
+			dependencies: [
+				.product(name: "AsyncAlgorithms", package: "swift-async-algorithms"),
+			]
 		),
 		.testTarget(
 			name: "PersistentCacheKitTests",

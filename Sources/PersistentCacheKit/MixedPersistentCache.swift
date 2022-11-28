@@ -1,4 +1,5 @@
 import Foundation
+import AsyncAlgorithms
 #if os(iOS)
 	import UIKit
 #endif
@@ -67,6 +68,14 @@ public actor MixedPersistentCache {
 		}
 	}
 
+	private let cacheUpdated = AsyncChannel<(key: String, value: Any?)>()
+	// TODO: switch to some AsyncSequence<Value?> when available
+	func updates<Value>(for key: Key<Value>) -> AsyncMapSequence<AsyncFilterSequence<AsyncChannel<(key: String, value: Any?)>>, Value?> {
+		cacheUpdated
+			.filter { $0.key == key.rawValue }
+			.map { $0.value as? Value }
+	}
+
 	public func get<Value>(_ key: Key<Value>) async -> Value? {
 		if let item = await self.get(item: key), item.isValid {
 			return item.value
@@ -80,7 +89,7 @@ public actor MixedPersistentCache {
 	}
 
 	public func get<Value>(item key: Key<Value>) async -> Item<Value>? {
-		if let item = self.internalCache[stringKey(for: key)] as? Item<Value> {
+		if let item = self.internalCache[key.rawValue] as? Item<Value> {
 			return item
 		} else if
 			let data = await self.storage?.get(stringKey(for: key)),
@@ -93,9 +102,11 @@ public actor MixedPersistentCache {
 	}
 
 	public func set<Value>(_ key: Key<Value>, _ item: Item<Value>?) async {
-		let data = try? self.encoder.encode(item)
+		self.internalCache[key.rawValue] = item
 
-		self.internalCache[self.stringKey(for: key)] = item
+		await self.cacheUpdated.send((key.rawValue, item?.value))
+
+		let data = await Task { try? self.encoder.encode(item) }.value
 
 		await self.storage?.set(self.stringKey(for: key), value: data)
 	}
