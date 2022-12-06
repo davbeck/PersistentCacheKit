@@ -36,6 +36,8 @@ public final class SQLiteDB {
 	public let url: URL
 	fileprivate let rawValue: OpaquePointer
 	
+	fileprivate var isClosed: Bool = false
+	
 	public init(url: URL) throws {
 		self.url = url
 		
@@ -64,6 +66,14 @@ public final class SQLiteDB {
 	}
 	
 	public func close() throws {
+		guard !isClosed else { return }
+		isClosed = true
+		
+		for statement in preparedStatements {
+			statement.finalize()
+		}
+		preparedStatements = []
+		
 		let result = sqlite3_close(rawValue)
 		guard result == SQLITE_OK || result == SQLITE_DONE else {
 			throw Error.sqlite(code: result, message: self.errorMessage())
@@ -103,6 +113,7 @@ public final class SQLiteDB {
 public final class SQLitePreparedStatement {
 	fileprivate weak var database: SQLiteDB?
 	fileprivate let rawValue: OpaquePointer
+	fileprivate var isFinalized: Bool = false
 	
 	fileprivate init(rawValue: OpaquePointer) {
 		self.rawValue = rawValue
@@ -124,6 +135,12 @@ public final class SQLitePreparedStatement {
 	}
 	
 	deinit {
+		finalize()
+	}
+	
+	fileprivate func finalize() {
+		guard !isFinalized else { return }
+		isFinalized = true
 		sqlite3_finalize(rawValue)
 	}
 	

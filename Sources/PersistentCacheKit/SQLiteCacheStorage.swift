@@ -3,6 +3,10 @@ import os
 import SQLite3
 
 public final class SQLiteCacheStorage: CacheStorage {
+	public enum Error: Swift.Error {
+		case invalidated
+	}
+	
 	@available(OSX 10.12, iOS 10.0, watchOS 3.0, tvOS 10.0, *)
 	static let log = OSLog(subsystem: "co.davidbeck.persistent_cache_kit.plist", category: "sqlite_storage")
 	
@@ -22,14 +26,12 @@ public final class SQLiteCacheStorage: CacheStorage {
 		}
 	}()
 	
-	private let db: SQLiteDB
+	public let url: URL
+	private var db: SQLiteDB?
 	private let queue = DispatchQueue(label: "SQLiteCacheStorage")
 	
-	public var url: URL {
-		return self.db.url
-	}
-	
 	public init(url: URL) throws {
+		self.url = url
 		self.db = try SQLiteDB(url: url)
 		
 		try self.createTable()
@@ -51,16 +53,18 @@ public final class SQLiteCacheStorage: CacheStorage {
 	
 	public func removeAll() throws {
 		try self.queue.sync {
+			guard let db = self.db else { throw Error.invalidated }
+			
 			do {
 				let sql = "DELETE FROM cache_storage;"
-				let statement = try self.db.preparedStatement(forSQL: sql)
+				let statement = try db.preparedStatement(forSQL: sql)
 				try statement.step()
 				try statement.reset()
 			}
 			
 			do {
 				let sql = "VACUUM;"
-				let statement = try self.db.preparedStatement(forSQL: sql)
+				let statement = try db.preparedStatement(forSQL: sql)
 				try statement.step()
 				try statement.reset()
 			}
@@ -69,9 +73,23 @@ public final class SQLiteCacheStorage: CacheStorage {
 		}
 	}
 	
+	/// Closes the connection to the db.
+	///
+	/// All operations called after this will fail.
+	public func invalidate() throws {
+		try self.queue.sync {
+			guard let db = self.db else { throw Error.invalidated }
+			
+			try db.close()
+			self.db = nil
+		}
+	}
+	
 	// MARK: - Queries
 	
 	private func createTable() throws {
+		guard let db = self.db else { throw Error.invalidated }
+		
 		let statement = try db.preparedStatement(forSQL: "CREATE TABLE IF NOT EXISTS cache_storage (key TEXT PRIMARY KEY NOT NULL, data BLOB, createdAt INTEGER)", shouldCache: false)
 		try statement.step()
 	}
@@ -82,8 +100,10 @@ public final class SQLiteCacheStorage: CacheStorage {
 				var data: Data?
 				
 				do {
+					guard let db = self.db else { throw Error.invalidated }
+					
 					let sql = "SELECT data FROM cache_storage WHERE key = ?"
-					let statement = try self.db.preparedStatement(forSQL: sql)
+					let statement = try db.preparedStatement(forSQL: sql)
 					
 					try statement.bind(key, at: 1)
 					
@@ -104,9 +124,11 @@ public final class SQLiteCacheStorage: CacheStorage {
 		set {
 			self.queue.async {
 				do {
+					guard let db = self.db else { throw Error.invalidated }
+					
 					let sql = "INSERT OR REPLACE INTO cache_storage (key, data, createdAt) VALUES (?, ?, ?)"
 					
-					let statement = try self.db.preparedStatement(forSQL: sql)
+					let statement = try db.preparedStatement(forSQL: sql)
 					
 					try statement.bind(key, at: 1)
 					try statement.bind(newValue, at: 2)
@@ -128,11 +150,13 @@ public final class SQLiteCacheStorage: CacheStorage {
 	private var lastTrimmed: Date?
 	
 	private func currentFilesize(fast: Bool) throws -> Int {
+		guard let db = self.db else { throw Error.invalidated }
+		
 		if fast {
 			var currentFilesize = 0
 			
 			let sql = "SELECT SUM(LENGTH(data)) AS filesize FROM cache_storage;"
-			let statement = try self.db.preparedStatement(forSQL: sql)
+			let statement = try db.preparedStatement(forSQL: sql)
 			
 			if try statement.step() {
 				currentFilesize = statement.getInt(atColumn: 0) ?? 0
@@ -147,10 +171,12 @@ public final class SQLiteCacheStorage: CacheStorage {
 	}
 	
 	private func objectCount() throws -> Int {
+		guard let db = self.db else { throw Error.invalidated }
+		
 		var count = 0
 		
 		let sql = "SELECT COUNT(*) AS count FROM cache_storage;"
-		let statement = try self.db.preparedStatement(forSQL: sql)
+		let statement = try db.preparedStatement(forSQL: sql)
 		
 		if try statement.step() {
 			count = statement.getInt(atColumn: 0) ?? 0
@@ -176,6 +202,8 @@ public final class SQLiteCacheStorage: CacheStorage {
 	}
 	
 	private func _trimFilesize(fast: Bool = false) throws {
+		guard let db = self.db else { throw Error.invalidated }
+		
 		guard let maxFilesize = maxFilesize else { return }
 		var currentFileSize = try currentFilesize(fast: fast)
 		var iteration = 0
@@ -189,7 +217,7 @@ public final class SQLiteCacheStorage: CacheStorage {
 			
 			do {
 				let sql = "DELETE FROM cache_storage WHERE key IN (SELECT key FROM cache_storage ORDER BY createdAt ASC LIMIT ?);"
-				let statement = try self.db.preparedStatement(forSQL: sql)
+				let statement = try db.preparedStatement(forSQL: sql)
 				try statement.bind(count, at: 1)
 				try statement.step()
 				try statement.reset()
@@ -197,7 +225,7 @@ public final class SQLiteCacheStorage: CacheStorage {
 			
 			do {
 				let sql = "VACUUM;"
-				let statement = try self.db.preparedStatement(forSQL: sql)
+				let statement = try db.preparedStatement(forSQL: sql)
 				try statement.step()
 				try statement.reset()
 			}
