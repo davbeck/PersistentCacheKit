@@ -86,6 +86,11 @@ public class PersistentCache<Key: CustomStringConvertible & Hashable, Value: Cod
 			.map(\.value)
 	}
 
+	public func publisher(for key: Key) -> some Publisher<Value?, Never> {
+		updates(for: key)
+			.prepend(self[key])
+	}
+
 	public subscript(key: Key) -> Value? {
 		get {
 			if let item = self[item: key], item.isValid {
@@ -118,8 +123,10 @@ public class PersistentCache<Key: CustomStringConvertible & Hashable, Value: Cod
 				self.internalCache[key] = newValue
 
 				self.storage?[self.stringKey(for: key)] = data
-				
-				self.updated.send((key, newValue?.value))
+
+				DispatchQueue.global().async {
+					self.updated.send((key, newValue?.value))
+				}
 			}
 		}
 	}

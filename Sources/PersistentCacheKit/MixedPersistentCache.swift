@@ -65,6 +65,11 @@ public class MixedPersistentCache {
 			.filter { $0.key == key.rawValue }
 			.map { $0.value as? Value }
 	}
+	
+	public func publisher<Value>(for key: Key<Value>) -> some Publisher<Value?, Never> {
+		updates(for: key)
+			.prepend(self[key])
+	}
 
 	public subscript<Value>(key: Key<Value>) -> Value? {
 		get {
@@ -99,7 +104,9 @@ public class MixedPersistentCache {
 
 				self.storage?[self.stringKey(for: key)] = data
 
-				self.updated.send((key.rawValue, newValue?.value))
+				DispatchQueue.global().async {
+					self.updated.send((key.rawValue, newValue?.value))
+				}
 			}
 		}
 	}
