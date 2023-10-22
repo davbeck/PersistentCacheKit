@@ -2,7 +2,7 @@ import Foundation
 import os
 import SQLite3
 
-public final class SQLiteCacheStorage: CacheStorage {
+public final class SQLiteCacheStorage: CacheStorage, @unchecked Sendable {
 	public enum Error: Swift.Error {
 		case invalidated
 	}

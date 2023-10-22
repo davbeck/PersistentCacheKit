@@ -16,7 +16,7 @@ public struct Key<Value: Codable>: Hashable, RawRepresentable {
 	}
 }
 
-public class MixedPersistentCache {
+public class MixedPersistentCache: @unchecked Sendable {
 	private let queue = DispatchQueue(label: "Cache", attributes: .concurrent)
 	private var internalCache = [String: Any]()
 

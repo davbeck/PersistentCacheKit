@@ -36,7 +36,7 @@ public struct Item<Value: Codable>: Codable {
 	}
 }
 
-public class PersistentCache<Key: CustomStringConvertible & Hashable, Value: Codable> {
+public class PersistentCache<Key: CustomStringConvertible & Hashable, Value: Codable>: @unchecked Sendable {
 	private let queue = DispatchQueue(label: "Cache", attributes: .concurrent)
 	private var internalCache = [Key: Item<Value>]()
 
